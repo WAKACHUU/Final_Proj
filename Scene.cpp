@@ -55,7 +55,11 @@ bool Scene::trace(
 
 // Implementation of Path Tracing
 Vector3f Scene::castRay(const Ray &ray) const {
+    
+    // std::cout<<"inside castray"<<std::endl;
+    
     Intersection its = intersect(ray);
+
     if (!its.happened) return Vector3f(0.f);
     
     Vector3f N = normalize(its.normal);
@@ -65,63 +69,56 @@ Vector3f Scene::castRay(const Ray &ray) const {
         TODO: 
         Implement path tracing here.
     */
-    if (its.obj->hasEmit()) {
-        return its.emit;
-    }
 
-    Intersection light;
-    float pdf_a;
-    sampleLight(light, pdf_a); //now we have light intersect and its pdf
-    Vector3f wi = light.coords - its.coords; // wi
-    Vector3f wi_n = normalize(wi);
-    Vector3f n_light = normalize(light.normal); //N of the light
-    Vector3f wi_rev = -wi_n;
+    if(its.emit.norm() > 0)
+        return its.m->getEmission();
 
-    float cosine_light = dotProduct(wi_rev, n_light);
+    // DIRECT ILLUMINATION - contribution from light source
+    // sample light from light source
+    Intersection area_p;
+    float pdf_light_area;
+    sampleLight(area_p, pdf_light_area);
+
+    // convert to solid angle pdf_omega = ||x' - x||^2/Acos(θ')
+    float light_obj_dist = ((area_p.coords - its.coords).norm()) * ((area_p.coords - its.coords).norm());
+    float area_theta = dotProduct(normalize(its.coords - area_p.coords), normalize(area_p.normal));
+    float pdf_light_solidAngle = light_obj_dist * pdf_light_area / area_theta;
     
-    float light_area = 1.0 / pdf_a;
-    float pdf_w = wi.norm()*wi.norm() / (cosine_light * light_area);
-
-
-    Vector3f f_r = its.m->eval(wi_n, wo, N); //BRDF of light
-
-    float cosine = dotProduct(wi_n, N);
-
-    Vector3f L_dir = Vector3f(), L_indir = Vector3f();
-
-    //if it is blocked
-    Ray ray_i = Ray(its.coords, wi_n);
-    Intersection shdIts = intersect(ray_i); 
-
-    if (!shdIts.happened && cosine_light > 0) { 
-        L_dir = light.emit * f_r * cosine / pdf_w; 
-        
-    }
-    else {
-        /*wi.norm() < shdIts.distance*/
-        if ( wi.norm() >= shdIts.distance || cosine_light <= 0 || dotProduct(wi_n, N) < 0) {
-            L_dir = Vector3f(0);
-            //std::cout << "!!" << cosine_light << std::endl;
-        }
-        else if (cosine_light>0) {
-            L_dir = light.emit * f_r * cosine / pdf_w; 
-        }
-    }   
+    // cast ray from its to light
+    Vector3f wi_dir = normalize(area_p.coords - its.coords);
+    Ray out_dir = Ray(its.coords, wi_dir);
+    Intersection hitPoint_dir = intersect(out_dir);
     
+    Vector3f L_i = area_p.emit;
+    Vector3f f_r_dir = its.m->eval(wi_dir, wo, N);
+    float theta_dir = dotProduct(wi_dir, N);
 
-//indirect part!
-    Vector3f wi_b = normalize(its.m->sample(wo, N));
-    float pdf_brdf = its.m->pdf(wi_b, wo, N);
+    // L_dir = L_i * f_r * cos θ / pdf_light(ω from p to x’)
+    Vector3f L_dir = Vector3f(0.f);
+    if(theta_dir >= cos(M_PI/2) && hitPoint_dir.emit.norm() == area_p.emit.norm()) // hitPoint_dir.emit.norm() == area_p.emit.norm()
+        L_dir = L_i * f_r_dir * theta_dir / pdf_light_solidAngle;
 
-    Ray newIts = Ray(its.coords, wi_b);
+    // INDIRECT ILLUMINATION - contribution from other reflectors
+    Vector3f L_indir = Vector3f(0.f);
 
-    Vector3f f_r_new = its.m->eval(wi_b, wo, N);
+    // Russian Roulette
+    float ksi = get_random_float();
+    if(ksi > RussianRoulette)
+        return L_dir + L_indir;
 
-    float cosine_new = dotProduct(wi_b, N);
+    // Randomly sample the hemisphere toward ωi
+    Vector3f wi_indir = normalize(its.m->sample(wo, N)); 
 
-    if (intersect(newIts).happened && !intersect(newIts).obj->hasEmit()) { //not emitting 
-        L_indir = castRay(newIts) * f_r_new * cosine_new / pdf_brdf / RussianRoulette;
-    }
+    // cast ray from its to sampled direction
+    Ray out_indir = Ray(its.coords, wi_indir);
+    Intersection hitPoint_indir = intersect(out_indir);
+
+    float pdf_brdf = its.m->pdf(wi_indir, wo, N);
+    Vector3f f_r_indir = its.m->eval(wi_indir, wo, N);
+    float theta_indir = dotProduct(wi_indir, N);
+    
+    if(hitPoint_indir.emit.norm() != area_p.emit.norm()) 
+        L_indir = castRay(out_indir) * f_r_indir * theta_indir / pdf_brdf / RussianRoulette;
 
     return L_dir + L_indir;
 }
