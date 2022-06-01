@@ -26,7 +26,7 @@ void Renderer::Render(const Scene& scene)
 
     // for submission, render 4 images with 1, 4, 16, and 64 spp
     // change the spp value to change number of path samples per pixel
-    int spp = 1;
+    int spp = 4;
     std::cout << "SPP: " << spp << "\n";
     for (uint32_t j = 0; j < scene.height; ++j) {
         for (uint32_t i = 0; i < scene.width; ++i) {

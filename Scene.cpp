@@ -93,9 +93,12 @@ Vector3f Scene::castRay(const Ray &ray) const {
     Vector3f f_r_dir = its.m->eval(wi_dir, wo, N);
     float theta_dir = dotProduct(wi_dir, N);
 
+    Vector3f wi = area_p.coords - its.coords;
     // L_dir = L_i * f_r * cos θ / pdf_light(ω from p to x’)
     Vector3f L_dir = Vector3f(0.f);
-    if(theta_dir >= cos(M_PI/2) && hitPoint_dir.emit.norm() == area_p.emit.norm()) // hitPoint_dir.emit.norm() == area_p.emit.norm()
+    if(theta_dir >= cos(M_PI/2) && hitPoint_dir.emit.norm() == area_p.emit.norm())
+    //if(theta_dir >= cos(M_PI/2) && wi.norm() < hitPoint_dir.distance)
+    //&& dotProduct(-wi_dir, normalize(area_p.normal)) > 0
         L_dir = L_i * f_r_dir * theta_dir / pdf_light_solidAngle;
 
     // INDIRECT ILLUMINATION - contribution from other reflectors
@@ -118,6 +121,7 @@ Vector3f Scene::castRay(const Ray &ray) const {
     float theta_indir = dotProduct(wi_indir, N);
     
     if(hitPoint_indir.emit.norm() != area_p.emit.norm()) 
+    //if (hitPoint_indir.happened && !hitPoint_indir.obj->hasEmit())
         L_indir = castRay(out_indir) * f_r_indir * theta_indir / pdf_brdf / RussianRoulette;
 
     return L_dir + L_indir;
