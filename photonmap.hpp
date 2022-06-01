@@ -1,68 +1,78 @@
+// referred to Jensen's code
+
 #ifndef RAYTRACING_PHOTONMAP_H
 #define RAYTRACING_PHOTONMAP_H
 
-#include <ANN/ANN.h>
 #include "Vector.hpp"
-
-const float M_PI = 3.141592653589793f;
+#include "Bounds3.hpp"
 
 typedef struct Photon {
     float pos[3];
     float power[3];
-    //short plane
-    unsigned char theta, phi;
+    short plane; // splitting plane for kd-tree
+    unsigned char theta, phi; // incoming direction
 } Photon;
 
 typedef struct NearestPhotons {
-	//int max; //I don't think we need this; it seems ANN does not use heap
+	int max;
 	int found;
-	//int got_heap;
+	int got_heap;
 	float pos[3];	
-	float *dist2; // I think dist2[0] is to store the max_dist2 while following 
-                  // elements are really storing distance of each nearest photon?
-	const Photon **index;
+	float *dist2; // max search distance d^2
+	const Photon **index; // to keep track of the current subtree's root
 } NearestPhotons;
 
-
 class PhotonMap {
-    public:
-        PhotonMap(const int max_num_photons);
-        ~PhotonMap() {
-            free(photons);
-            //free(kd_tree);
-        }
-        void store(const float power[3], const float pos[3], const float dir[3]);
-        void photon_dir ( float *dir, const Photon *p) const;
+public:
+    PhotonMap(const int max_phot);
+    ~PhotonMap();
+    void store(const float power[3], const float pos[3], const float dir[3]);
+    
+    // 1 / (# of emitted photons)
+    void scale_photon_power(const float scale);
+    
+    // balance the kd-tree
+    void balance(void);
 
-        //my new function
-        void buildKdtree(); //hopefully this can replace balance()
-        void locate_photons(NearestPhotons* np) const;
-        void irradiance_estimate(float irrad[3],
-	                             const float pos[3],
-	                             const float normal[3],
-	                             const float max_dist
-	                             /*,const int nphotons*/) const;
+    // compute the irradiance at a given position
+    void irradiance_estimate(float irrad[3], // return irradiance
+                                const float pos[3], // surface position
+                                const float normal[3], // surface normal at pos
+                                const float max_dist, // max distance to look for photons
+                                const int nphotons ) const; // # of photons to use (maybe not necessary?)
 
-        int photon_stored;
-        int photon_max;
-        Photon* photons;
 
-    private:
-        //used for scaling
-        int prev_scaled;
+    // locate_photons(1) initiate search at the root of the tree
+    void locate_photons(NearestPhotons* const np, const int index) const;
+    
+    // return direction of photon
+    void photon_dir(float *dir, const Photon *p) const;
 
-        //store sine and cosine values for convenience
-        float costheta[256];
-	    float sintheta[256];
-	    float cosphi[256];
-	    float sinphi[256];
+    // int photon_stored;
+    // int photon_max;
+    // Photon* photons;
 
-        //I think this means the min and max coords of the scene
-        float bbox_min[3];
-        float bbox_max[3];
+private:
+    void balance_segment(Photon **pbal, Photon **porg, const int index, const int start, const int end);
+    void median_split(Photon **p, const int start, const int end, const int median, const int axis);
 
-        //our kdTree
-        ANNkd_tree* kd_tree;
+    Photon *photons;
+
+    int stored_photons;
+    int half_stored_photons;
+    int max_photons;
+    int prev_scale; // used for scaling
+
+    //store sine and cosine values for convenience
+    float costheta[256];
+    float sintheta[256];
+    float cosphi[256];
+    float sinphi[256];
+
+    // not sure if these are necessary at the moment
+    float bbox_min[3];
+    float bbox_max[3];
+
 };
 
 #endif
