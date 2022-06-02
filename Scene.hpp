@@ -11,6 +11,7 @@
 #include "AreaLight.hpp"
 #include "BVH.hpp"
 #include "Ray.hpp"
+#include "PhotonMap.hpp"
 
 
 class Scene
@@ -19,12 +20,14 @@ public:
     // setting up options
     int width = 1280;
     int height = 960;
+    int numPhotons = 100;
     double fov = 40;
     Vector3f backgroundColor = Vector3f(0.235294, 0.67451, 0.843137);
     int maxDepth = 1;
     float RussianRoulette = 0.8;
-    Scene(int w, int h) : width(w), height(h)
-    {}
+    // Scene(int w, int h) : width(w), height(h)
+    // {}
+    Scene(int w, int h, int numPhotons);
 
     void Add(Object *object) { objects.push_back(object); }
     void Add(std::unique_ptr<Light> light) { lights.push_back(std::move(light)); }
@@ -41,6 +44,12 @@ public:
                                                    const Vector3f &shadowPointOrig,
                                                    const std::vector<Object *> &objects, uint32_t &index,
                                                    const Vector3f &dir, float specularExponent);
+
+
+    // photon mapping stuff
+    PhotonMap *causticsMap;
+    PhotonMap *globalMap;
+    Vector3f emitPhotons(int numPhot) const;
 
     // creating the scene (adding objects and lights)
     std::vector<Object* > objects;

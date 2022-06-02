@@ -345,3 +345,7 @@ void PhotonMap::balance_segment(
 		} 
 	}
 }
+
+int PhotonMap::get_num_photons() const{
+	return stored_photons;
+}

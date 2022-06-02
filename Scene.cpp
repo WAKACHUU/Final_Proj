@@ -4,6 +4,15 @@
 
 #include "Scene.hpp"
 #include <cmath>
+#include <typeinfo>
+
+Scene::Scene(int w, int h, int numPhotons) {
+    width = w;
+    height = h;
+    this->numPhotons = numPhotons;
+    causticsMap = new PhotonMap(numPhotons);
+    globalMap = new PhotonMap(numPhotons);
+}
 
 void Scene::buildBVH() {
     printf(" - Generating BVH...\n\n");
@@ -53,11 +62,69 @@ bool Scene::trace(
     return (*hitObject != nullptr);
 }
 
+Vector3f Scene::emitPhotons(int numPhot) const{
+    int currNumPhot = 0;
+    
+    // Object *light;
+    // for (uint32_t k = 0; k < objects.size(); ++k)
+    //     if (objects[k]->hasEmit()){
+    //         light = objects[k];
+    //         continue; // since we only have one light source
+    //     }
+    
+    // std::cout<<"inside emitPhotons"<<std::endl;
+
+    Vector3f test = Vector3f(0.0);
+
+    while(currNumPhot < numPhot){
+        Intersection area_p; // to get position on light source
+        float pdf_light_area; // no use?
+        sampleLight(area_p, pdf_light_area);
+        // std::cout<<typeid(area_p.obj).name()<<std::endl;
+        // std::cout<<area_p.coords<<std::endl;
+
+        // sample direction
+        float x_dir, y_dir, z_dir;
+        do{
+            x_dir = 2 * get_random_float() - 1;
+            y_dir = 2 * get_random_float() - 1;
+            z_dir = 2 * get_random_float() - 1;
+        } while(x_dir * x_dir + y_dir * y_dir + z_dir * z_dir > 1);
+        
+        float dir[3] = {x_dir, y_dir, z_dir};
+        float pos[3] = {area_p.coords.x, area_p.coords.y, area_p.coords.z};
+        float power[3] = {area_p.emit.x, area_p.emit.y, area_p.emit.z};
+        
+        // std::cout<<"before storing photons"<<std::endl;
+
+        // store photons
+        causticsMap->store(power, pos, dir);
+        globalMap->store(power, pos, dir);
+
+        test += area_p.emit;
+        currNumPhot++;
+    }
+
+    // std::cout<<"done storing"<<std::endl;
+
+    // scale power
+    causticsMap->scale_photon_power(1.0 / numPhot);
+    globalMap->scale_photon_power(1.0 / numPhot);
+
+    // std::cout<<"no errors up to here"<<std::endl;
+
+    // std::cout<<causticsMap->get_num_photons()<<std::endl;
+
+    return test;
+}
+
 // Implementation of Path Tracing
 Vector3f Scene::castRay(const Ray &ray) const {
     
-    // std::cout<<"inside castray"<<std::endl;
-    
+    // Vector3f test = emitPhotons(1);
+
+    // return test;
+
     Intersection its = intersect(ray);
 
     if (!its.happened) return Vector3f(0.f);

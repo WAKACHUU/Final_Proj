@@ -48,9 +48,9 @@ public:
     // return direction of photon
     void photon_dir(float *dir, const Photon *p) const;
 
-    // int photon_stored;
-    // int photon_max;
-    // Photon* photons;
+    int get_num_photons() const;
+
+    
 
 private:
     void balance_segment(Photon **pbal, Photon **porg, const int index, const int start, const int end);

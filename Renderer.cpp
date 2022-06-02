@@ -26,20 +26,21 @@ void Renderer::Render(const Scene& scene)
 
     // for submission, render 4 images with 1, 4, 16, and 64 spp
     // change the spp value to change number of path samples per pixel
-    int spp = 4;
+    int spp = 1;
     std::cout << "SPP: " << spp << "\n";
     for (uint32_t j = 0; j < scene.height; ++j) {
         for (uint32_t i = 0; i < scene.width; ++i) {
-            // generate primary ray direction
-            float x = (2 * (i + 0.5 * rand() / RAND_MAX) / (float)scene.width - 1) * imageAspectRatio * scale;
-            float y = (1 - 2 * (j + 0.5 * rand() / RAND_MAX) / (float)scene.height) * scale;
+            // // generate primary ray direction
+            // float x = (2 * (i + 0.5 * rand() / RAND_MAX) / (float)scene.width - 1) * imageAspectRatio * scale;
+            // float y = (1 - 2 * (j + 0.5 * rand() / RAND_MAX) / (float)scene.height) * scale;
 
-            Vector3f lookat_pos = Vector3f(278 - x, 273 + y, -799);
-            Vector3f dir = normalize(lookat_pos - eye_pos);
+            // Vector3f lookat_pos = Vector3f(278 - x, 273 + y, -799);
+            // Vector3f dir = normalize(lookat_pos - eye_pos);
 
-            for (int k = 0; k < spp; k++){
-                framebuffer[m] += scene.castRay(Ray(eye_pos, dir)) / spp;  
-            }
+            // for (int k = 0; k < spp; k++){
+            //     framebuffer[m] += scene.castRay(Ray(eye_pos, dir)) / spp;  
+            // }
+            framebuffer[m] += scene.emitPhotons(1);
             m++;
         }
         UpdateProgress(j / (float)scene.height);
