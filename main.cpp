@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     // Change the definition here to change resolution
     // Make sure to work with lower resolutions until you are ready to test higher resolutions
     // Scene scene(512, 512);
-    Scene scene(256, 256, 200);
+    Scene scene(256, 256, 10000);
 
     Material *red = new Material(DIFFUSE, Vector3f(0.0f));
     red->Kd = Vector3f(0.63f, 0.065f, 0.05f);
@@ -34,15 +34,15 @@ int main(int argc, char **argv) {
     light->Kd = Vector3f(0.65f);
 
     MeshTriangle floor("../models/cornellbox/floor.obj", white);
-    //MeshTriangle shortbox("../models/cornellbox/shortbox.obj", white);
-    MeshTriangle tallbox("../models/cornellbox/tallbox.obj", mirror);
-    MeshTriangle left("../models/cornellbox/left.obj", green);
+    MeshTriangle shortbox("../models/cornellbox/shortbox.obj", white);
+    MeshTriangle tallbox("../models/cornellbox/tallbox.obj", white);
+    MeshTriangle left("../models/cornellbox/left.obj", red);
     MeshTriangle right("../models/cornellbox/right.obj", green);
     MeshTriangle light_("../models/cornellbox/light.obj", light);
     //MeshTriangle teapot("../models/cornellbox/teapot.obj", mirror);
 
     scene.Add(&floor);
-    //scene.Add(&shortbox);
+    scene.Add(&shortbox);
     //scene.Add(&teapot);
     scene.Add(&tallbox);
     scene.Add(&left);

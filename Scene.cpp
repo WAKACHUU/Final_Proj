@@ -62,7 +62,54 @@ bool Scene::trace(
     return (*hitObject != nullptr);
 }
 
-Vector3f Scene::emitPhotons(int numPhot) const{
+void Scene::tracePhoton(Ray &ray, Vector3f &power) const{
+    
+    // std::cout<<"inside trace photons"<<std::endl;
+
+    // currently only implementing diffuse case
+
+    Intersection hit = intersect(ray);
+
+    // photon doesn't land on a surface or traces back to the light source
+    if (!hit.happened) 
+        return;
+
+    // std::cout<<"after eliminating useless photons"<<std::endl;
+    
+    Vector3f N = normalize(hit.normal);
+    Vector3f wo = normalize(-ray.direction);
+
+    // Russian Roulette
+    float ksi = get_random_float();
+    
+    // absorb photon
+    if(ksi > RussianRoulette)
+        return;
+
+    // reflect photon
+
+    // sample photon bouce direction
+    Vector3f reflect_dir = normalize(hit.m->sample(wo, N)); 
+
+    // cast ray from hit to sampled direction
+    Ray reflectedPhot = Ray(hit.coords, reflect_dir);
+    Intersection reflectedPoint = intersect(reflectedPhot);
+
+
+    // cannot directly access material type, will result to seg fault.
+    // need to find another way to access it
+    // if(reflectedPoint.m->m_type == DIFFUSE){
+    //     ray = Ray(reflectedPoint.coords, -reflect_dir);
+    //     power = power / RussianRoulette;
+    //     return;
+    // }
+
+    ray = Ray(reflectedPoint.coords, -reflect_dir);
+    power = power / RussianRoulette;
+    return;
+}
+
+void Scene::emitPhotons() const{
     int currNumPhot = 0;
     
     // Object *light;
@@ -76,7 +123,7 @@ Vector3f Scene::emitPhotons(int numPhot) const{
 
     Vector3f test = Vector3f(0.0);
 
-    while(currNumPhot < numPhot){
+    while(currNumPhot < numPhotons){
         Intersection area_p; // to get position on light source
         float pdf_light_area; // no use?
         sampleLight(area_p, pdf_light_area);
@@ -91,39 +138,60 @@ Vector3f Scene::emitPhotons(int numPhot) const{
             z_dir = 2 * get_random_float() - 1;
         } while(x_dir * x_dir + y_dir * y_dir + z_dir * z_dir > 1);
         
-        float dir[3] = {x_dir, y_dir, z_dir};
-        float pos[3] = {area_p.coords.x, area_p.coords.y, area_p.coords.z};
-        float power[3] = {area_p.emit.x, area_p.emit.y, area_p.emit.z};
+        // generate ray from light source and trace photon
+        Ray storedPhoton = Ray(area_p.coords, Vector3f(x_dir, y_dir, z_dir));
+        Vector3f photonPower = area_p.emit;
+        tracePhoton(storedPhoton, photonPower);
         
         // std::cout<<"before storing photons"<<std::endl;
+
+        float dir[3] = {storedPhoton.direction.x, storedPhoton.direction.y, storedPhoton.direction.z};
+        float pos[3] = {storedPhoton.origin.x, storedPhoton.origin.y, storedPhoton.origin.z};
+        float power[3] = {photonPower.x, photonPower.y, photonPower.z};
+        
+        // std::cout<<dir<<std::endl;
 
         // store photons
         causticsMap->store(power, pos, dir);
         globalMap->store(power, pos, dir);
 
-        test += area_p.emit;
         currNumPhot++;
     }
 
-    // std::cout<<"done storing"<<std::endl;
+    std::cout<<"done storing"<<std::endl;
 
     // scale power
-    causticsMap->scale_photon_power(1.0 / numPhot);
-    globalMap->scale_photon_power(1.0 / numPhot);
+    causticsMap->scale_photon_power(1.0 / numPhotons);
+    globalMap->scale_photon_power(1.0 / numPhotons);
 
     // std::cout<<"no errors up to here"<<std::endl;
 
-    // std::cout<<causticsMap->get_num_photons()<<std::endl;
+    std::cout<<causticsMap->get_num_photons()<<std::endl;
 
-    return test;
+    return;
 }
+
+Vector3f Scene::getIrradiance(const Ray &ray) const{
+    float irrad[3];
+    Intersection its = intersect(ray);
+
+    // if (!its.happened) 
+    //     return Vector3f(0);
+    // if(its.emit.norm() > 0)
+    //     return its.emit;
+
+    float pos[3] = {its.coords.x, its.coords.y, its.coords.z};
+    float normal[3] = {-its.normal.x, -its.normal.y, -its.normal.z};
+    causticsMap->irradiance_estimate(irrad, pos, normal, 0.1, 100);
+
+    // std::cout<<Vector3f(irrad[0], irrad[1], irrad[2])<<std::endl;
+
+    return Vector3f(irrad[0], irrad[1], irrad[2]);
+}
+
 
 // Implementation of Path Tracing
 Vector3f Scene::castRay(const Ray &ray) const {
-    
-    // Vector3f test = emitPhotons(1);
-
-    // return test;
 
     Intersection its = intersect(ray);
 

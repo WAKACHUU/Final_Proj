@@ -49,7 +49,9 @@ public:
     // photon mapping stuff
     PhotonMap *causticsMap;
     PhotonMap *globalMap;
-    Vector3f emitPhotons(int numPhot) const;
+    void emitPhotons() const;
+    void tracePhoton(Ray &ray, Vector3f &power) const;
+    Vector3f getIrradiance(const Ray &ray) const;
 
     // creating the scene (adding objects and lights)
     std::vector<Object* > objects;
