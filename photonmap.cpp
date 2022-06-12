@@ -68,6 +68,8 @@ void PhotonMap::store(const float power[3], const float pos[3], const float dir[
 		node->phi = (unsigned char)(phi + 256);
 	else
 		node->phi = (unsigned char)phi;
+
+	// std::cout<<node->pos[0]<<std::endl;
 }
 
 void PhotonMap::scale_photon_power(const float scale){
@@ -82,6 +84,8 @@ void PhotonMap::scale_photon_power(const float scale){
 void PhotonMap::locate_photons(NearestPhotons* const np, const int index) const {\
     const Photon *p = &photons[index];
 	float dist1;
+
+	// std::cout<<p->pos[0]<<std::endl;
 
 	if(index < half_stored_photons){
 		dist1 = np->pos[p->plane] - p->pos[p->plane];
@@ -104,6 +108,9 @@ void PhotonMap::locate_photons(NearestPhotons* const np, const int index) const 
 	dist2 += dist1 * dist1;
 	dist1 = p->pos[2] - np->pos[2];
 	dist2 += dist1 * dist1;
+
+	// std::cout<<np->dist2[0]<<std::endl;
+	// std::cout<<dist2<<std::endl;
 
 	if(dist2 < np->dist2[0]){ // found a photon within range
 		if(np->found < np->max){
@@ -175,7 +182,12 @@ void PhotonMap::irradiance_estimate(
 	np.index = (const Photon**)alloca( sizeof(Photon*)*(nphotons+1));
 
 	np.pos[0] = pos[0]; np.pos[1] = pos[1]; np.pos[2] = pos[2];
+
+	// std::cout<<np.pos[0]<<std::endl;
+
 	np.max = nphotons;
+	// std::cout<<nphotons<<std::endl;
+
 	np.found = 0;
 	np.got_heap = 0;
 	np.dist2[0] = max_dist*max_dist;
@@ -183,7 +195,8 @@ void PhotonMap::irradiance_estimate(
 	// std::cout<<"before locating nearby photons"<<std::endl;
 	locate_photons(&np, 1);
 	
-	// std::cout<<np.found<<std::endl;
+	// if(np.found != 0)
+	// 	std::cout<<"found photons"<<std::endl;
 	if (np.found < 8)
 		return;
 
@@ -215,7 +228,7 @@ void PhotonMap::irradiance_estimate(
 	irrad[0] *= tmp;
 	irrad[1] *= tmp;
 	irrad[2] *= tmp;
-    
+	// std::cout<<Vector3f(irrad[0], irrad[1], irrad[2])<<std::endl;
 }
 
 void PhotonMap::photon_dir(float *dir, const Photon *p) const {
@@ -356,4 +369,10 @@ void PhotonMap::balance_segment(
 
 int PhotonMap::get_num_photons() const{
 	return stored_photons;
+}
+
+void PhotonMap::print_photons() const{
+	for(int i = 0; i < sizeof(photons); i++){
+		std::cout<<photons[i].pos<<std::endl;
+	}
 }

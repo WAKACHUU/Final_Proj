@@ -50,6 +50,8 @@ public:
 
     int get_num_photons() const;
 
+    void print_photons() const;
+
     
 
 private:

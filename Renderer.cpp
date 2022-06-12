@@ -24,9 +24,9 @@ void Renderer::Render(const Scene& scene)
     Vector3f eye_pos(278, 273, -800);
     int m = 0;
 
-    // should call emitPhotons before nested loop
-    scene.emitPhotons();
-    scene.causticsMap->balance();
+    // PHOTON MAPPING
+    scene.photonMapping();
+
 
     // for submission, render 4 images with 1, 4, 16, and 64 spp
     // change the spp value to change number of path samples per pixel
@@ -41,11 +41,10 @@ void Renderer::Render(const Scene& scene)
             Vector3f lookat_pos = Vector3f(278 - x, 273 + y, -799);
             Vector3f dir = normalize(lookat_pos - eye_pos);
 
-            // for (int k = 0; k < spp; k++){
-            //     framebuffer[m] += scene.castRay(Ray(eye_pos, dir)) / spp;  
-            // }
-            framebuffer[m] = scene.getIrradiance(Ray(eye_pos, dir));
-            // framebuffer[m] = Vector3f(1.0);
+            for (int k = 0; k < spp; k++){
+                framebuffer[m] += scene.castRay(Ray(eye_pos, dir), 0) / spp;  
+            }
+
             m++;
         }
         UpdateProgress(j / (float)scene.height);

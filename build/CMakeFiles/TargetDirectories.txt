@@ -1,3 +1,0 @@
-/Users/gracsoo/Documents/cs190i/final/CS190I_final_proj/build/CMakeFiles/RayTracing.dir
-/Users/gracsoo/Documents/cs190i/final/CS190I_final_proj/build/CMakeFiles/edit_cache.dir
-/Users/gracsoo/Documents/cs190i/final/CS190I_final_proj/build/CMakeFiles/rebuild_cache.dir

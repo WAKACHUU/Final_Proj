@@ -6,8 +6,11 @@
 #define RAYTRACING_MATERIAL_H
 
 #include "Vector.hpp"
+#include "Microfacet.hpp"
 
-enum MaterialType {DIFFUSE, MIRROR};
+using std::swap;
+
+enum MaterialType {DIFFUSE, MIRROR, TR};
 
 class Material{
 private:
@@ -85,6 +88,7 @@ private:
         return a.x * B + a.y * C + a.z * N;
     }
 
+
 public:
     MaterialType m_type;
     //Vector3f m_color;
@@ -92,6 +96,7 @@ public:
     float ior;
     Vector3f Kd, Ks;
     float specularExponent;
+    float roughness;
     //Texture tex;
 
     inline Material(MaterialType t=DIFFUSE, Vector3f e=Vector3f(0,0,0));
@@ -107,6 +112,8 @@ public:
     inline float pdf(const Vector3f &wi, const Vector3f &wo, const Vector3f &N);
     // given a ray, calculate the contribution of this ray
     inline Vector3f eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &N);
+
+    inline float sampleGlass(const Vector3f &wi, const Vector3f &wo, const Vector3f &N, float* pdf);
 
 };
 
@@ -149,6 +156,37 @@ Vector3f Material::sample(const Vector3f &wi, const Vector3f &N){
             return toWorld(localRay, N);
             break;
         }
+
+        case TR:
+        // {
+        //     Vector3f localRay = refract(wi, N, 1.5f);
+
+        //     Vector3f test = Vector3f(1,1,1).normalized();
+        //     Vector3f testn = Vector3f(0,1,0);
+        //     std::cout << "??";
+        //     std::cout << refract(test, testn, 1.5f).x << refract(test, testn, 1.5f).y << refract(test, testn, 1.5f).z;
+        //     //std::cout << dotProduct(localRay,N);
+        //     return localRay;
+
+        //     break;
+        // }
+        {
+            // randomly choose a micro surface
+            const auto micro_surface_normal = Microfacet::sample_micro_surface(N, roughness*roughness);
+            const auto obs_dir  = -wi;
+
+            float f;
+            fresnel(obs_dir, micro_surface_normal, ior, f);
+
+            // trace back
+            if (get_random_float() < f) {
+                // reflection
+                return reflect(obs_dir, micro_surface_normal);
+            } else {
+                // refraction(transmission)
+                return refract(obs_dir, micro_surface_normal, ior);
+            }
+        }
     }
 }
 
@@ -166,14 +204,55 @@ float Material::pdf(const Vector3f &wi, const Vector3f &wo, const Vector3f &N){
 
         case MIRROR:
         {
-            if(dotProduct(wo, N) > 0.001f)
+            if(dotProduct(wo, N) > 0.0f)
                 return 1.0f;
             else
                 return 0.0f;
             break;
         }
+        
+        case TR:
+        {
+            // mac
+            const auto cosine_i = dotProduct(wi, N);
+            const auto cosine_o = dotProduct(wo, N);
+
+            const auto check_ray_dir = cosine_i * cosine_o;
+
+            // mic
+            const auto micro_surface_normal = Microfacet::outward_micro_surface_normal(wi, wo, check_ray_dir, cosine_o, ior);
+            const auto cosine_i_mf = dotProduct(wi, micro_surface_normal);
+            const auto cosine_o_mf = dotProduct(wo, micro_surface_normal);
+
+            // extreme case
+            if (check_ray_dir == 0.0f)
+                return 0.0f;
+
+            const auto obs_dir = -wo;
+
+            float f;
+            fresnel(obs_dir, micro_surface_normal, ior, f);
+
+            const auto pdf_micro_surface = Microfacet::pdf_micro_surface(dotProduct(micro_surface_normal, N), roughness*roughness);
+
+
+
+            if (check_ray_dir > 0.f) {
+                // reflection
+                const auto jacobian = Microfacet::reflect_jacobian(cosine_o_mf);
+                return pdf_micro_surface * f * jacobian;
+            } else {
+                // refraction
+                const auto ior_in = cosine_i < 0.0f ? ior : 1.0f;
+                const auto ior_out = cosine_o < 0.0f ? ior : 1.0f;
+                const auto jacobian = Microfacet::refract_jacobian(cosine_i_mf, ior_in, cosine_o_mf, ior_out);
+                return pdf_micro_surface * (1.0f - f) * jacobian;
+            }
+        }
+        
     }
 }
+
 
 Vector3f Material::eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &N){
     switch(m_type){
@@ -193,13 +272,127 @@ Vector3f Material::eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &
         case MIRROR:
         {
             float cosalpha = dotProduct(N, wo);
-            if(cosalpha > 0.001f){
+            if(cosalpha > 0.0f){
                 float kr;
                 fresnel(wi, N, ior, kr);
                 return kr * Vector3f(1.0f / cosalpha);
+            } else
+                return Vector3f(0.0f);
+
+            break;
+        }
+
+        case TR: 
+        // {
+        //     float cosalpha = dotProduct(N, wo);
+        //     if(cosalpha < 0.001f){
+        //         std::cout << ".. ";
+        //         float kr;
+        //         fresnel(wi, N, 1.5f, kr);
+        //         return (1.0f-kr) * Vector3f(1.0f / -cosalpha);
+        //     }
+        // }
+        {
+            // mac
+            const auto cosine_i = dotProduct(wi, N);
+            const auto cosine_o = dotProduct(wo, N);
+            const auto check_ray_dir = cosine_i * cosine_o;
+
+            // mic
+            const auto micro_surface_normal = Microfacet::outward_micro_surface_normal(wi, wo, check_ray_dir, cosine_o, ior);
+            const auto cosine_i_mf = dotProduct(wi, micro_surface_normal);
+            const auto cosine_o_mf = dotProduct(wo, micro_surface_normal);
+
+
+            if (check_ray_dir == 0.0f)
+                return 0.0f;
+
+            
+            // const auto is_same_side = check_ray_dir > 0.0f;
+            // const auto is_surface_outward = normal_dot_ray_out_dir > 0.0f;
+
+
+
+            //const auto normal_dot_micro_surface_normal = dotProduct(micro_surface_normal, N);
+
+
+            const auto D = Microfacet::distribution(dotProduct(micro_surface_normal, N), roughness*roughness);
+            const auto G = Microfacet::geometry(cosine_i_mf, cosine_o_mf, roughness);
+
+            const auto obs_dir = -wo;
+            float F;
+            fresnel(obs_dir, micro_surface_normal, ior, F);
+
+            if (check_ray_dir > 0.f) {
+                // reflection
+                //std::cout << "eval refl" << D * F * G / 4.0f << std::endl;
+                return D * F * G / 4.0f;   // Cook–Torrance Specular (original denominator is merged into G for Smith-Joint approximation)
+            } else {
+                // refraction
+                const auto ior_in = cosine_i < 0.0f ? ior : 1.0f;
+                const auto ior_out = cosine_o < 0.0f ? ior : 1.0f;
+
+                // std::cout << "eval: refr:" << Microfacet::refract_jacobian(micro_surface_normal_dot_ray_source_dir, ior_in, micro_surface_normal_dot_ray_out_dir, ior_out)
+                //     << " " << fabs(micro_surface_normal_dot_ray_source_dir) <<" "<< D * (1.0f - F) * G <<std::endl;
+
+                // Transmission (original denominator is merged into G for Smith-Joint approximation)
+                return Microfacet::refract_jacobian(cosine_i_mf, ior_in, cosine_o_mf, ior_out)
+                    * fabs(cosine_i_mf) * D * (1.0f - F) * G;
             }
         }
     }
+
+}
+float Material::sampleGlass(const Vector3f &wi, const Vector3f &wo, const Vector3f &N, float* pdf){
+    
+    // float R0 = (ior-1.0)*(ior-1.0)/((ior + 1.0)*(ior + 1.0));
+    // float cosTheta = clamp(-1, 1, dotProduct(wi, N));
+    // float f = 1 - fabs(cosTheta);
+    // float g = ((f * f) * (f * f)) * f;
+    // float fresnel_coe = R0 + (1.0 - R0)*g;
+
+    // bool entering = cosTheta > 0;
+    // float ei = 1.f, et = ior;
+    // if (!entering) {
+    //     swap(ei, et);
+    //     cosTheta = -cosTheta;  // be careful here, want cosTheta to be
+    //                             // positive for everything below
+    // }
+
+    // float inveta = et / ei;
+    // float inveta2 = inveta * inveta;
+
+    // if (refract(wi, N, ior) == 0) {
+    //     // total internal reflection; always reflect
+    //     *pdf = 1.0;
+    //     // reflect(wi, N);
+    //     return Vector3f(1.0f / cosTheta);
+    // }
+
+    // if ((double)(std::rand()) / RAND_MAX < fresnel_coe) {
+    //     *pdf = fresnel_coe;
+    //     // reflect(wo, wi);
+    //     return (fresnel_coe / cosTheta) * Vector3f(1.f);
+    // } else {
+    //     // refraction ray has already been computed
+    //     float one_minus_fresnel = 1.0f - fresnel_coe;
+    //     *pdf = one_minus_fresnel;
+    //     return (one_minus_fresnel * inveta2 / cosTheta) * Vector3f(1.f);
+    // }
+
+    // refract(wi, N, ior);
+    
+    Vector3f sampledDir = refract(wi, N, ior);
+    if(sampledDir == 0) return 0;
+    float cosTheta = dotProduct(sampledDir, -N);
+
+    float ft;
+    fresnel(wi, N, ior, ft);
+    ft = 1 - ft;
+
+    // (etaI * etaI) / (etaT * etaT);
+    return (1 / ior * ior) * ft / cosTheta;
+
 }
 
 #endif //RAYTRACING_MATERIAL_H
