@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     // Change the definition here to change resolution
     // Make sure to work with lower resolutions until you are ready to test higher resolutions
     // Scene scene(512, 512);
-    Scene scene(256, 256, 10000);
+    Scene scene(512, 512, 10000);
 
     Material *red = new Material(DIFFUSE, Vector3f(0.0f));
     red->Kd = Vector3f(0.63f, 0.065f, 0.05f);
@@ -27,6 +27,10 @@ int main(int argc, char **argv) {
     Material *mirror = new Material(MIRROR, Vector3f(0.0f));
     mirror->Kd = Vector3f(0.725f, 0.71f, 0.68f);
     mirror->ior = 10.f;
+
+    Material *tr = new Material(TR, Vector3f(0.0f));
+    tr->ior = 1.5f;
+    tr->roughness = 0.01;
 
     Material *light = new Material(DIFFUSE, (8.0f * Vector3f(0.747f + 0.058f, 0.747f + 0.258f, 0.747f) +
                                              15.6f * Vector3f(0.740f + 0.287f, 0.740f + 0.160f, 0.740f) +
@@ -41,13 +45,21 @@ int main(int argc, char **argv) {
     MeshTriangle light_("../models/cornellbox/light.obj", light);
     //MeshTriangle teapot("../models/cornellbox/teapot.obj", mirror);
 
+    //Sphere glass_ball = Sphere(Vector3f(178.0f, 328.0f, 230.0f), 75.0f, tr);
+
+    Sphere glassBallLeft(Vector3f(380.0, 100.0, 250.0), 80.0f, tr);
+    Sphere glassBallRight(Vector3f(180.0, 200.0, 200.0), 80.0f, tr);
+
     scene.Add(&floor);
-    scene.Add(&shortbox);
-    //scene.Add(&teapot);
-    scene.Add(&tallbox);
+    // scene.Add(&shortbox);
+
+    // scene.Add(&tallbox);
     scene.Add(&left);
     scene.Add(&right);
     scene.Add(&light_);
+
+    scene.Add(&glassBallLeft);
+    scene.Add(&glassBallRight);
 
     scene.buildBVH();
 

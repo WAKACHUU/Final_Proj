@@ -27,7 +27,7 @@ inline Vector3f toWorld(const Vector3f &a, const Vector3f &N){
 }
 
 // transform polar coordinates to cartesian coordinates
-inline Vector3f polar_transform(float theta, float phi) {
+inline Vector3f polar_to_cartesian(float theta, float phi) {
 	return {
         std::sin(theta) * std::cos(phi),
         std::sin(theta) * std::sin(phi),
@@ -39,6 +39,8 @@ class Microfacet {
 public:
     // Generalized-Trowbridge-Reitz Normal Distribution Function (GTR-NDF) when γ = 2.
     static float distribution(float normal_dot_micro_surface_normal, float roughness_sq);
+    // Fresnel-Schlick approximation
+    static Vector3f fresnel_schlick(float micro_surface_normal_dot_ray_out_dir, const Vector3f& f0);
     // Smith-Joint Approximation from Respawn Entertainment.
     static float geometry(float normal_dot_light_source_dir, float normal_dot_observer_dir, float roughness_sq);
 
@@ -47,16 +49,16 @@ public:
     // Probability distribution function for importance sampling on GTR-NDF
     static float pdf_micro_surface(float normal_dot_micro_surface_normal, float roughness_sq);
     // Calculate the outward micro-surface normal vector
-    static Vector3f outward_micro_surface_normal(const Vector3f& wi, const Vector3f& wo,
-                                              bool is_same_side, bool is_surface_outward, float ior);
+    static Vector3f outward_micro_surface_normal(const Vector3f& ray_source_dir, const Vector3f& ray_out_dir,
+                                              float check_ray, float check_n, float ior);
 
     // The absolute value of the determinant of the Jacobian matrix for the transformation
     // between micro-surface normal and reflected ray.
-    static float reflect_jacobian(float micro_surface_normal_dot_wo);
+    static float reflect_jacobian(float micro_surface_normal_dot_ray_out_dir);
     // The absolute value of the determinant of the Jacobian matrix for the transformation
     // between micro-surface normal and refracted ray.
-    static float refract_jacobian(float micro_surface_normal_dot_wi, float ior_in,
-                                  float micro_surface_normal_dot_wo, float ior_out);
+    static float refract_jacobian(float micro_surface_normal_dot_ray_source_dir, float ior_in,
+                                  float micro_surface_normal_dot_ray_out_dir, float ior_out);
 };
 
 

@@ -30,15 +30,35 @@ private:
     // If the ray is outside, you need to make cosi positive cosi = -N.I
     //
     // If the ray is inside, you need to invert the refractive indices and negate the normal N
-    Vector3f refract(const Vector3f &I, const Vector3f &N, const float &ior) const
-    {
-        float cosi = clamp(-1, 1, dotProduct(I, N));
-        float etai = 1, etat = ior;
-        Vector3f n = N;
-        if (cosi < 0) { cosi = -cosi; } else { std::swap(etai, etat); n= -N; }
-        float eta = etai / etat;
-        float k = 1 - eta * eta * (1 - cosi * cosi);
-        return k < 0 ? 0 : eta * I + (eta * cosi - sqrtf(k)) * n;
+    // Vector3f refract(const Vector3f &I, const Vector3f &N, const float &ior) const
+    // {
+    //     float cosi = clamp(-1, 1, dotProduct(I, N));
+    //     float etai = 1, etat = ior;
+    //     Vector3f n = N;
+    //     if (cosi < 0) { cosi = -cosi; } else { std::swap(etai, etat); n= -N; }
+    //     float eta = etai / etat;
+    //     float k = 1 - eta * eta * (1 - cosi * cosi);
+    //     return k < 0 ? 0 : eta * I + (eta * cosi - sqrtf(k)) * n;
+    // }
+
+    
+// If the ray is outside, make cos_i positive.
+// If the ray is inside, invert the refractive indices and negate the normal.
+    Vector3f refract(const Vector3f& ray_in_dir, const Vector3f& normal, float ior) {
+        auto cos_i = clamp(-1.0f, 1.0f, dotProduct(ray_in_dir, normal));
+        auto eta_i = 1.0f;
+        auto eta_t = ior;
+        Vector3f correct_normal = normal;
+        if (cos_i < 0.0f) {
+            cos_i = -cos_i;
+        } else {
+            std::swap(eta_i, eta_t);
+            correct_normal = -normal;
+        }
+
+        const auto eta = eta_i / eta_t;
+        const auto k = 1.0f - eta * eta * (1.0f - cos_i * cos_i);
+        return k < 0.0f ? Vector3f{0.0f, 0.0f, 0.0f} : (eta * ray_in_dir + (eta * cos_i - std::sqrt(k)) * correct_normal).normalized();
     }
 
     // Compute Fresnel equation
@@ -140,10 +160,22 @@ Vector3f Material::sample(const Vector3f &wi, const Vector3f &N){
         }
 
         case TR:
+        // {
+        //     Vector3f localRay = refract(wi, N, 1.5f);
+
+        //     Vector3f test = Vector3f(1,1,1).normalized();
+        //     Vector3f testn = Vector3f(0,1,0);
+        //     std::cout << "??";
+        //     std::cout << refract(test, testn, 1.5f).x << refract(test, testn, 1.5f).y << refract(test, testn, 1.5f).z;
+        //     //std::cout << dotProduct(localRay,N);
+        //     return localRay;
+
+        //     break;
+        // }
         {
             // randomly choose a micro surface
-            const Vector3f micro_surface_normal = Microfacet::sample_micro_surface(N, roughness*roughness);
-            const Vector3f obs_dir  = -wi;
+            const auto micro_surface_normal = Microfacet::sample_micro_surface(N, roughness*roughness);
+            const auto obs_dir  = -wi;
 
             float f;
             fresnel(obs_dir, micro_surface_normal, ior, f);
@@ -157,18 +189,6 @@ Vector3f Material::sample(const Vector3f &wi, const Vector3f &N){
                 return refract(obs_dir, micro_surface_normal, ior);
             }
         }
-        // {
-        //     Vector3f localRay = refract(wi, N, 1.5f);
-
-        //     Vector3f test = Vector3f(1,1,1).normalized();
-        //     Vector3f testn = Vector3f(0,1,0);
-        //     std::cout << "??";
-        //     std::cout << refract(test, testn, 1.5f).x << refract(test, testn, 1.5f).y << refract(test, testn, 1.5f).z;
-        //     //std::cout << dotProduct(localRay,N);
-        //     return localRay;
-
-        //     break;
-        // }
     }
 }
 
@@ -191,49 +211,45 @@ float Material::pdf(const Vector3f &wi, const Vector3f &wo, const Vector3f &N){
                 return 0.0f;
             break;
         }
+
         case TR:
         {
-            const float check_ray_dir = dotProduct(wi, N) * dotProduct(wo, N);
+            // mac
+            const auto cosine_i = dotProduct(wi, N);
+            const auto cosine_o = dotProduct(wo, N);
 
-            
-            if (check_ray_dir == 0.0f) {
+            const auto check_ray_dir = cosine_i * cosine_o;
+
+            // mic
+            const auto micro_surface_normal = Microfacet::outward_micro_surface_normal(wi, wo, check_ray_dir, cosine_o, ior);
+            const auto cosine_i_mf = dotProduct(wi, micro_surface_normal);
+            const auto cosine_o_mf = dotProduct(wo, micro_surface_normal);
+
+            // extreme case
+            if (check_ray_dir == 0.0f)
                 return 0.0f;
-            }
-                
-            const Vector3f obs_dir = -wo;
 
-            const bool is_same_side = check_ray_dir > 0.0f;
-            const bool is_surface_outward = dotProduct(wo, N) > 0.0f;
+            const auto obs_dir = -wo;
 
-            const Vector3f micro_surface_normal = Microfacet::outward_micro_surface_normal(wi, wo, is_same_side, is_surface_outward, ior);
             float f;
             fresnel(obs_dir, micro_surface_normal, ior, f);
 
-            const float normal_dot_micro_surface_normal = dotProduct(micro_surface_normal, N);
-            const float pdf_micro_surface = Microfacet::pdf_micro_surface(normal_dot_micro_surface_normal, roughness*roughness);
+            const auto pdf_micro_surface = Microfacet::pdf_micro_surface(dotProduct(micro_surface_normal, N), roughness*roughness);
 
-            if (is_same_side) {
+
+
+            if (check_ray_dir > 0.f) {
                 // reflection
-                const auto jacobian = Microfacet::reflect_jacobian(dotProduct(wo, micro_surface_normal));
+                const auto jacobian = Microfacet::reflect_jacobian(cosine_o_mf);
                 return pdf_micro_surface * f * jacobian;
             } else {
                 // refraction
-                //determine in and out
-                const auto ior_in = dotProduct(wi, N) < 0.0f ? ior : 1.0f;
-                const auto ior_out = dotProduct(wo, N) < 0.0f ? ior : 1.0f;
-
-                const auto jacobian = Microfacet::refract_jacobian(dotProduct(wi, micro_surface_normal), ior_in, dotProduct(wo, micro_surface_normal), ior_out);
+                const auto ior_in = cosine_i < 0.0f ? ior : 1.0f;
+                const auto ior_out = cosine_o < 0.0f ? ior : 1.0f;
+                const auto jacobian = Microfacet::refract_jacobian(cosine_i_mf, ior_in, cosine_o_mf, ior_out);
                 return pdf_micro_surface * (1.0f - f) * jacobian;
             }
         }
-        // {
-        //     if (dotProduct(wo, N) < 0.001f) {
-        //         return 1.0f;
-        //     }
-        //     else {
-        //         return 0.0f;
-        //     }
-        // }
     }
 }
 
@@ -264,44 +280,6 @@ Vector3f Material::eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &
             }
         }
         case TR: 
-        {
-            const float normal_dot_wi = dotProduct(wi, N);
-            const float normal_dot_wo = dotProduct(wo, N);
-            const float check_ray_dir = normal_dot_wi * normal_dot_wo;
-            if (check_ray_dir == 0.0f)
-                return 0.0f;
-
-            const Vector3f obs_dir = -wo;
-            const bool is_same_side = check_ray_dir > 0.0f;
-            const bool is_surface_outward = normal_dot_wo > 0.0f;
-
-            const Vector3f micro_surface_normal = Microfacet::outward_micro_surface_normal(wi, wo, is_same_side, is_surface_outward, ior);
-
-
-            const auto D = Microfacet::distribution(dotProduct(micro_surface_normal, N), roughness*roughness);
-            const auto G = Microfacet::geometry(dotProduct(wi, micro_surface_normal), 
-                                                dotProduct(wo, micro_surface_normal), 
-                                                roughness);
-            float F;
-            fresnel(obs_dir, micro_surface_normal, ior, F);
-
-            if (is_same_side) {
-                // reflection
-                //std::cout << "eval refl" << D * F * G / 4.0f << std::endl;
-                return D * F * G / 4.0f;   // Cook–Torrance Specular (original denominator is merged into G for Smith-Joint approximation)
-            } else {
-                // refraction
-                const auto ior_in = normal_dot_wi < 0.0f ? ior : 1.0f;
-                const auto ior_out = normal_dot_wo < 0.0f ? ior : 1.0f;
-
-                // std::cout << "eval: refr:" << Microfacet::refract_jacobian(dotProduct(wi, micro_surface_normal), ior_in, dotProduct(wo, micro_surface_normal), ior_out)
-                //     << " " << fabs(dotProduct(wi, micro_surface_normal)) <<" "<< D * (1.0f - F) * G <<std::endl;
-
-                // Transmission (original denominator is merged into G for Smith-Joint approximation)
-                return Microfacet::refract_jacobian(dotProduct(wi, micro_surface_normal), ior_in, dotProduct(wo, micro_surface_normal), ior_out)
-                    * fabs(dotProduct(wi, micro_surface_normal)) * D * (1.0f - F) * G;
-            }
-        }
         // {
         //     float cosalpha = dotProduct(N, wo);
         //     if(cosalpha < 0.001f){
@@ -311,6 +289,54 @@ Vector3f Material::eval(const Vector3f &wi, const Vector3f &wo, const Vector3f &
         //         return (1.0f-kr) * Vector3f(1.0f / -cosalpha);
         //     }
         // }
+        {
+            // mac
+            const auto cosine_i = dotProduct(wi, N);
+            const auto cosine_o = dotProduct(wo, N);
+            const auto check_ray_dir = cosine_i * cosine_o;
+
+            // mic
+            const auto micro_surface_normal = Microfacet::outward_micro_surface_normal(wi, wo, check_ray_dir, cosine_o, ior);
+            const auto cosine_i_mf = dotProduct(wi, micro_surface_normal);
+            const auto cosine_o_mf = dotProduct(wo, micro_surface_normal);
+
+
+            if (check_ray_dir == 0.0f)
+                return 0.0f;
+
+            
+            // const auto is_same_side = check_ray_dir > 0.0f;
+            // const auto is_surface_outward = normal_dot_ray_out_dir > 0.0f;
+
+
+
+            //const auto normal_dot_micro_surface_normal = dotProduct(micro_surface_normal, N);
+
+
+            const auto D = Microfacet::distribution(dotProduct(micro_surface_normal, N), roughness*roughness);
+            const auto G = Microfacet::geometry(cosine_i_mf, cosine_o_mf, roughness);
+
+            const auto obs_dir = -wo;
+            float F;
+            fresnel(obs_dir, micro_surface_normal, ior, F);
+
+            if (check_ray_dir > 0.f) {
+                // reflection
+                //std::cout << "eval refl" << D * F * G / 4.0f << std::endl;
+                return D * F * G / 4.0f;   // Cook–Torrance Specular (original denominator is merged into G for Smith-Joint approximation)
+            } else {
+                // refraction
+                const auto ior_in = cosine_i < 0.0f ? ior : 1.0f;
+                const auto ior_out = cosine_o < 0.0f ? ior : 1.0f;
+
+                // std::cout << "eval: refr:" << Microfacet::refract_jacobian(micro_surface_normal_dot_ray_source_dir, ior_in, micro_surface_normal_dot_ray_out_dir, ior_out)
+                //     << " " << fabs(micro_surface_normal_dot_ray_source_dir) <<" "<< D * (1.0f - F) * G <<std::endl;
+
+                // Transmission (original denominator is merged into G for Smith-Joint approximation)
+                return Microfacet::refract_jacobian(cosine_i_mf, ior_in, cosine_o_mf, ior_out)
+                    * fabs(cosine_i_mf) * D * (1.0f - F) * G;
+            }
+        }
     }
 }
 

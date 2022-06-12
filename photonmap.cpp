@@ -198,9 +198,10 @@ void PhotonMap::irradiance_estimate(
 		photon_dir(pdir, p);
 		// std::cout<<Vector3f(pdir[0], pdir[1], pdir[2])<<std::endl;
 		// std::cout<<Vector3f(p->power[0], p->power[1], p->power[2])<<std::endl;
-		// std::cout<<Vector3f(normal[0], normal[1], normal[2])<<std::endl;
+		//std::cout<<Vector3f(normal[0], normal[1], normal[2])<<std::endl;
 		// std::cout<<pdir[0]*normal[0]+pdir[1]*-1+pdir[2]*normal[2]<<std::endl;
 		
+
 		if ((pdir[0]*normal[0]+pdir[1]*normal[1]+pdir[2]*normal[2]) < 0.0f) {
 			irrad[0] += p->power[0];
 			irrad[1] += p->power[1];

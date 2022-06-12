@@ -74,5 +74,6 @@
         "variant": "cpp",
         "__functional_base": "cpp"
     },
-    "cmake.configureOnOpen": true
+    "cmake.configureOnOpen": true,
+    "C_Cpp.errorSquiggles": "Disabled"
 }

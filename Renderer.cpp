@@ -30,7 +30,7 @@ void Renderer::Render(const Scene& scene)
 
     // for submission, render 4 images with 1, 4, 16, and 64 spp
     // change the spp value to change number of path samples per pixel
-    int spp = 1;
+    int spp = 4;
     std::cout << "SPP: " << spp << "\n";
     for (uint32_t j = 0; j < scene.height; ++j) {
         for (uint32_t i = 0; i < scene.width; ++i) {
@@ -41,10 +41,10 @@ void Renderer::Render(const Scene& scene)
             Vector3f lookat_pos = Vector3f(278 - x, 273 + y, -799);
             Vector3f dir = normalize(lookat_pos - eye_pos);
 
-            // for (int k = 0; k < spp; k++){
-            //     framebuffer[m] += scene.castRay(Ray(eye_pos, dir)) / spp;  
-            // }
-            framebuffer[m] = scene.getIrradiance(Ray(eye_pos, dir));
+            for (int k = 0; k < spp; k++){
+                framebuffer[m] += scene.castRay(Ray(eye_pos, dir)) / spp;  
+            }
+            //framebuffer[m] = scene.getIrradiance(Ray(eye_pos, dir));
             // framebuffer[m] = Vector3f(1.0);
             m++;
         }
