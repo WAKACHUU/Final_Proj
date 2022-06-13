@@ -1,3 +1,0 @@
-/mnt/c/Users/WAKA/Desktop/FINALLL190/CS190I_final_proj/build/CMakeFiles/rebuild_cache.dir
-/mnt/c/Users/WAKA/Desktop/FINALLL190/CS190I_final_proj/build/CMakeFiles/edit_cache.dir
-/mnt/c/Users/WAKA/Desktop/FINALLL190/CS190I_final_proj/build/CMakeFiles/RayTracing.dir
