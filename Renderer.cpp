@@ -42,7 +42,7 @@ void Renderer::Render(const Scene& scene)
             Vector3f dir = normalize(lookat_pos - eye_pos);
 
             for (int k = 0; k < spp; k++){
-                framebuffer[m] += scene.castRay(Ray(eye_pos, dir), 0) / spp;  
+                framebuffer[m] += scene.castRay(Ray(eye_pos, dir)) / spp;  
             }
 
             m++;

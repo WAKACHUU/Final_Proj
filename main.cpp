@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     // Change the definition here to change resolution
     // Make sure to work with lower resolutions until you are ready to test higher resolutions
     // Scene scene(512, 512);
-    Scene scene(1024, 1024, 1000000);
+    Scene scene(1024, 1024, 2000000);
 
     Material *red = new Material(DIFFUSE, Vector3f(0.0f));
     red->Kd = Vector3f(0.63f, 0.065f, 0.05f);
