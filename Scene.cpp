@@ -168,7 +168,7 @@ void Scene::photonMapping() const{
 
 
 // Implementation of Path Tracing
-Vector3f Scene::castRay(const Ray &ray) const {
+Vector3f Scene::castRay(const Ray &ray, int depth) const {
 
     Intersection intersection = intersect(ray);
 
@@ -196,57 +196,57 @@ Vector3f Scene::castRay(const Ray &ray) const {
     Intersection area_p;
     float pdf_light_area;
     sampleLight(area_p, pdf_light_area);
-// //
-//     //const auto light_sample = scene.sample_light_sources();
-//     //if (light_sample) {
-//         const Vector3f light_sample_pos = area_p.coords;               // position of sample point
-//         Vector3f w_to_light = light_sample_pos - pos;           // shading point to light sample point
-//         const Vector3f light_sample_dir = w_to_light.normalized();    // light sample point direction
-//         const Vector3f light_dir = -light_sample_dir;                                   // light direction
-//         const Vector3f light_sample_normal = area_p.normal;         // normal at sample point
-
-//         // check block between shading point and light sample point
-//         Ray checkerRay = Ray(pos, light_sample_dir);
-//         const Intersection check_intersection = intersect(checkerRay);
-//         if (check_intersection.happened && pow((check_intersection.coords - light_sample_pos).norm(),2) < EPSILON) {
-//             const Vector3f emission = area_p.emit;
-
-//             // light source importance sampling
-//             //const auto light_dir_dot_light_sample_normal = dotProduct(light_dir,light_sample_normal);
-//             const float pdf_light = (dotProduct(light_dir,light_sample_normal) == 0.0f) ? 
-//                 0.0f : (pow(w_to_light.norm(),2) * pdf_light_area) / fabs(dotProduct(light_dir,light_sample_normal));
-
-//             // bsdf importance sampling
-//             const float pdf_bsdf = m_its->pdf(light_sample_dir, obs_dir, normal);
-
-//             // balanced heuristic multiple importance sampling
-//             const float pdf_sum = pdf_light + pdf_bsdf;
-//             if (pdf_sum > 0.0f) {
-//                 // std::cout << normal << "??" << light_sample_dir <<"!!";
-//                 L_direct += emission * m_its->eval(light_sample_dir, obs_dir, normal) * fabs(dotProduct(normal, light_sample_dir)) / pdf_sum;
-//             }
-//         }
-//     //}
-
-//     // Indirect illumination
-//     Vector3f L_indirect = { 0.0f, 0.0f, 0.0f };
-
-//     // Use Russian Roulette to limit the recursion depth
-//     if (get_random_float() < RussianRoulette) {
-//         // sample a direction for indirect illumination
-//         const Vector3f wi_indir = m_its->sample(obs_dir, normal);
-
-//         // bsdf importance sampling
-//         const float pdf_bsdf = m_its->pdf(wi_indir, obs_dir, normal);
-//         Ray newRay = Ray(pos, wi_indir);
-//         if (pdf_bsdf > 0.0f) {
-//             L_indirect = castRay(newRay) * m_its->eval(wi_indir, obs_dir, normal) * fabs(dotProduct(wi_indir, normal))
-//                          / (pdf_bsdf * RussianRoulette);
-//         }
-//     }
 //
-    // if(depth > 1)
-    //     return  L_direct + L_indirect;
+    //const auto light_sample = scene.sample_light_sources();
+    //if (light_sample) {
+        const Vector3f light_sample_pos = area_p.coords;               // position of sample point
+        Vector3f w_to_light = light_sample_pos - pos;           // shading point to light sample point
+        const Vector3f light_sample_dir = w_to_light.normalized();    // light sample point direction
+        const Vector3f light_dir = -light_sample_dir;                                   // light direction
+        const Vector3f light_sample_normal = area_p.normal;         // normal at sample point
+
+        // check block between shading point and light sample point
+        Ray checkerRay = Ray(pos, light_sample_dir);
+        const Intersection check_intersection = intersect(checkerRay);
+        if (check_intersection.happened && pow((check_intersection.coords - light_sample_pos).norm(),2) < EPSILON) {
+            const Vector3f emission = area_p.emit;
+
+            // light source importance sampling
+            //const auto light_dir_dot_light_sample_normal = dotProduct(light_dir,light_sample_normal);
+            const float pdf_light = (dotProduct(light_dir,light_sample_normal) == 0.0f) ? 
+                0.0f : (pow(w_to_light.norm(),2) * pdf_light_area) / fabs(dotProduct(light_dir,light_sample_normal));
+
+            // bsdf importance sampling
+            const float pdf_bsdf = m_its->pdf(light_sample_dir, obs_dir, normal);
+
+            // balanced heuristic multiple importance sampling
+            const float pdf_sum = pdf_light + pdf_bsdf;
+            if (pdf_sum > 0.0f) {
+                // std::cout << normal << "??" << light_sample_dir <<"!!";
+                L_direct += emission * m_its->eval(light_sample_dir, obs_dir, normal) * fabs(dotProduct(normal, light_sample_dir)) / pdf_sum;
+            }
+        }
+    //}
+
+    // Indirect illumination
+    Vector3f L_indirect = { 0.0f, 0.0f, 0.0f };
+
+    // Use Russian Roulette to limit the recursion depth
+    if (get_random_float() < RussianRoulette) {
+        // sample a direction for indirect illumination
+        const Vector3f wi_indir = m_its->sample(obs_dir, normal);
+
+        // bsdf importance sampling
+        const float pdf_bsdf = m_its->pdf(wi_indir, obs_dir, normal);
+        Ray newRay = Ray(pos, wi_indir);
+        if (pdf_bsdf > 0.0f) {
+            L_indirect = castRay(newRay, ++depth) * m_its->eval(wi_indir, obs_dir, normal) * fabs(dotProduct(wi_indir, normal))
+                         / (pdf_bsdf * RussianRoulette);
+        }
+    }
+
+    if(depth > 1)
+        return  L_direct + L_indirect;
 
     // INDIRECT ILLUMINATION - GLOBAL PHOTON MAP
     Vector3f L_gm = Vector3f(0.0), L_c = Vector3f(0.0);
@@ -280,7 +280,7 @@ Vector3f Scene::castRay(const Ray &ray) const {
             float pos_c[3] = {intersection.coords.x, intersection.coords.y, intersection.coords.z};
             float normal_c[3] = {intersection.normal.x, intersection.normal.y, intersection.normal.z};
             float irrad_c[3] = {area_p.emit.x, area_p.emit.y, area_p.emit.z};
-            causticsMap->irradiance_estimate(irrad_c, pos_c, normal_c, 1.5, 150);
+            causticsMap->irradiance_estimate(irrad_c, pos_c, normal_c, 2, 150);
             Vector3f irrad_c_vec = Vector3f(irrad_c[0], irrad_c[1], irrad_c[2]);
             // std::cout<<irrad_c_vec<<std::endl;
             L_c = f_c * irrad_c_vec; // result is currently too bright if no scaling involved in photon tracing
@@ -288,12 +288,12 @@ Vector3f Scene::castRay(const Ray &ray) const {
     }
 
     // return L_gm + L_dir + L_c;
-    //return L_direct + L_indirect + L_gm + L_c;
+    // return L_direct + L_indirect + L_gm + L_c;
     // return L_dir + L_indir;
-    return L_c;
-    // return L_gm;
+    // return L_c;
+    return L_gm;
     // return L_indir;
-    // return L_dir;
+    // return L_direct + L_indirect;
 
     // Intersection its = intersect(ray);
 
