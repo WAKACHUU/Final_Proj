@@ -112,10 +112,10 @@ void Scene::tracePhoton(Ray &ray, Vector3f &power, bool hitSpecular, int depth) 
 
     Ray newBounce = Ray(hit.coords, w_new);
     // TODO: figure out how to scale the power, the 10 here is just a temp value
-    Vector3f newPower = power * R / RussianRoulette;
+    Vector3f newPower = power * 0.1 / RussianRoulette;
     // Vector3f origPower = power;
     if(hit.m->getType() == MIRROR || hit.m->getType() == TR) 
-        tracePhoton(newBounce, newPower, true, ++depth); // don't scale power specular?
+        tracePhoton(newBounce, power, true, ++depth); // don't scale power specular?
     else tracePhoton(newBounce, newPower, false, ++depth);
     
     return;
@@ -196,6 +196,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const {
     Intersection area_p;
     float pdf_light_area;
     sampleLight(area_p, pdf_light_area);
+//
     //const auto light_sample = scene.sample_light_sources();
     //if (light_sample) {
         const Vector3f light_sample_pos = area_p.coords;               // position of sample point
@@ -244,8 +245,8 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const {
         }
     }
 
-    // if(depth > 1)
-    //     return  L_direct + L_indirect;
+    if(depth > 1)
+        return  L_direct + L_indirect;
 
     // INDIRECT ILLUMINATION - GLOBAL PHOTON MAP
     Vector3f L_gm = Vector3f(0.0), L_c = Vector3f(0.0);
@@ -279,7 +280,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const {
             float pos_c[3] = {intersection.coords.x, intersection.coords.y, intersection.coords.z};
             float normal_c[3] = {intersection.normal.x, intersection.normal.y, intersection.normal.z};
             float irrad_c[3] = {area_p.emit.x, area_p.emit.y, area_p.emit.z};
-            causticsMap->irradiance_estimate(irrad_c, pos_c, normal_c, 1.05, 100);
+            causticsMap->irradiance_estimate(irrad_c, pos_c, normal_c, 2, 150);
             Vector3f irrad_c_vec = Vector3f(irrad_c[0], irrad_c[1], irrad_c[2]);
             // std::cout<<irrad_c_vec<<std::endl;
             L_c = f_c * irrad_c_vec; // result is currently too bright if no scaling involved in photon tracing
@@ -287,12 +288,12 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const {
     }
 
     // return L_gm + L_dir + L_c;
-    return L_direct + L_indirect + L_gm + L_c;
+    // return L_direct + L_indirect + L_gm + L_c;
     // return L_dir + L_indir;
     // return L_c;
-    // return L_gm;
+    return L_gm;
     // return L_indir;
-    // return L_dir;
+    // return L_direct + L_indirect;
 
     // Intersection its = intersect(ray);
 
